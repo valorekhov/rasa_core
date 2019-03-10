@@ -6,6 +6,8 @@ import logging
 import requests
 from flask import Blueprint, request, jsonify
 from typing import Text, Dict, Any
+from urllib.parse import urlparse
+from os import environ
 
 from rasa_core.channels.channel import UserMessage, OutputChannel, InputChannel
 
@@ -37,10 +39,20 @@ class BotFramework(OutputChannel):
         self.app_id = app_id
         self.app_password = app_password
         self.conversation = conversation
-        self.global_uri = "{}v3/".format(service_url)
+        service_url_canon = urlparse(service_url)
+        bot_framework_emulator_host = environ['BOT_FRAMEWORK_EMULATOR_HOST']
+        authority = service_url_canon.netloc
+        is_localhost = service_url_canon.hostname == 'localhost'
+        if bot_framework_emulator_host and is_localhost:
+            authority = '{}:{}'.format(bot_framework_emulator_host, service_url_canon.port) 
+        self.global_uri = "{}://{}/v3/".format(service_url_canon.scheme, authority)
         self.bot_id = bot_id
+        self.emulator_mode = is_localhost and not app_id and not app_password
 
     def _get_headers(self):
+        if self.emulator_mode:
+            return {"content-type": "application/json"}
+
         if BotFramework.token_expiration_date < datetime.datetime.now():
             uri = "{}/{}".format(MICROSOFT_OAUTH2_URL, MICROSOFT_OAUTH2_PATH)
             grant_type = 'client_credentials'
@@ -88,6 +100,7 @@ class BotFramework(OutputChannel):
 
         data.update(message_data)
         headers = self._get_headers()
+        logger.debug("POST %s", post_message_uri)
         send_response = requests.post(post_message_uri,
                                       headers=headers,
                                       data=json.dumps(data))
@@ -137,8 +150,9 @@ class BotFrameworkInput(InputChannel):
 
     @classmethod
     def from_credentials(cls, credentials):
+        # In the local emulator mode credentials may be omitted
         if not credentials:
-            cls.raise_missing_credentials_exception()
+            return cls(None, None)
 
         return cls(credentials.get("app_id"), credentials.get("app_password"))
 

@@ -582,6 +582,24 @@ the port. The endpoint for receiving botframework channel messages
 is ``/webhooks/botframework/webhook``. This is the url you should
 add in your microsoft bot service configuration.
 
+Bot Framework Emulator Local Mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When running the bot in the local mode without previously having provisioned an Azure Bot Service 
+nor having setup ngrok, be sure to remove ``app_id`` and ``app_password`` keys from the 
+botframework section of ``credentials.yml``.
+
+If running rasa_core within a docker container, the bot framework connector needs to have connectivity back to the
+host machine where the Emulator is running. Be sure to set a ``BOT_FRAMEWORK_EMULATOR_HOST``
+environment variable of the container to ``host.docker.internal``, which is a resolvable network 
+name for host communication supported on Docker for Mac and Windows as of v18.03 
+(for Linux see https://github.com/docker/for-linux/issues/264)
+
+.. code-block:: yaml
+services:
+  rasa_core:
+    environment:
+      BOT_FRAMEWORK_EMULATOR_HOST: host.docker.internal
+
 .. _socketio_connector:
 
 SocketIO Setup
